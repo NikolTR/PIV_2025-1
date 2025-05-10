@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-Setup(
+setup(
     name="PIV_2015-1",
     version="0.0.1",
     author="Nikol Tamayo",
