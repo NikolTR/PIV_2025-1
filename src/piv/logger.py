@@ -7,7 +7,7 @@ class Logger:
         if not os.path.exists('logs'):
             os.makedirs('logs')
 
-        self.log_file = f"logs/dolar_analysis_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        self.log_file = f"logs/meta_analysis_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
 
         logging.basicConfig(
