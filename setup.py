@@ -8,9 +8,10 @@ setup(
     description="",
     py_modules=["proyecto integrador V"],
     install_requires=[
-        "pandas",
+        "pandas==2.2.3",
         "numpy",
         "openpyxl",
-        "requests"
+        "requests==2.32.3",
+        "beautifulsoup4==4.13.3"
     ]
 )

@@ -4,11 +4,14 @@ from bs4 import BeautifulSoup
 from logger import Logger
 import os
 
-
 class Collector:
     def __init__(self):
         self.url='https://finance.yahoo.com/quote/META/history/?period1=1337347800&period2=1746921077'
         self.logger = Logger()
+        if not os.path.exists('/src/piv/static'):
+            os.makedirs('/src/piv/static')
+        if not os.path.exists('/src/piv/static/data'):
+            os.makedirs('/src/piv/static/data')
 
     def collector_data(self):
         class_name = self.__class__.__name__
