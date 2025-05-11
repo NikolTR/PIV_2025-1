@@ -50,10 +50,4 @@ class Collector:
         except Exception as error:
           self.logger.error(class_name, function_name, "Error al obtener los datos de la url {error}")
           return df
-
-if __name__ == "__main__":
-        coll = Collector()
-        df = coll.collector_data()
-        df.to_csv("Meta_Platforms_data.csv")
-else:
-    print("No se obtuvieron datos para guardar.")
+          

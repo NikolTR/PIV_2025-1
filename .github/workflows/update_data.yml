@@ -27,8 +27,8 @@ jobs:
         run: pip install --upgrade pip
       - name: Paso 6 - instalar dependencias
         run: pip install -e .
-      - name: Paso 7 - Ejecutar script
-        run: python prueba.py
+      - name: Paso 7 - Ejecutar script de main
+        run: python src/piv/main.py
         
       - name: Commit and Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
