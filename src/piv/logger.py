@@ -17,7 +17,7 @@ class Logger:
             datefmt='%Y-%m-%d %H:%M:%S'
         )
 
-        self.logger = logging.getLogger('DolarAnalysis')
+        self.logger = logging.getLogger('MetaAnalysis')
 
     def info(self, class_name, function_name, description):
         """Registra un mensaje de nivel INFO."""

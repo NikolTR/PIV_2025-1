@@ -14,23 +14,20 @@ class Collector:
             os.makedirs('/src/piv/static/data')
 
     def collector_data(self):
-        class_name = self.__class__.__name__
-        function_name = 'collector_data'
-    
         try:
           df = pd.DataFrame()
           headers= {
              'User-Agent':'Mozilla/5.0'
-          }
+             }
           response = requests.get(self.url,headers=headers)
           if response.status_code != 200:
-             self.logger.error(class_name, function_name, "Error al consultar la url : {}".format(response.status_code))
+             self.logger.error("Error al consultar la url : {}".format(response.status_code))
              return df
           
           soup = BeautifulSoup(response.text,'html.parser')
           table = soup.select_one('div[data-testid="history-table"] table')
           if table is None:
-             self.logger.error(class_name, function_name, "Error al buscar la tabla data-testid=history-table")
+             self.logger.error("Error al buscar la tabla data-testid=history-table")
              return df
           
           headers = [th.get_text(strip=True) for th in table.thead.find_all('th')]
@@ -48,9 +45,9 @@ class Collector:
                 'Precio de cierre ajustado por divisiones y distribuciones de dividendos y/o ganancias de capital.':'adj_cerrar',
                 'Volumen':'volumen'
             })
+          
           self.logger.info("Datos obtenidos exitosamente {}".format(df.shape))
           return df
         except Exception as error:
-          self.logger.error(class_name, function_name, "Error al obtener los datos de la url {error}")
-          return df
+          self.logger.error("Error al obtener los datos de la url {error}")
           
