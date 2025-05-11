@@ -12,6 +12,7 @@ def main():
 
     df =collector.collector_data()
     df.to_csv("src/piv/static/data/Meta_Platforms_data.csv")
+    logger.info('Main','main',f'Datos procesados y guardados exitosamente: {df.shape}')
 
 
 
