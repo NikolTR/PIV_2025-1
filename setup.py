@@ -1,17 +1,17 @@
 from setuptools import setup, find_packages
-
 setup(
-    name="piv_2025",
+    name="edu_pad",
     version="0.0.1",
-    author="Nikol Tamayo",
-    author_email="",
+    author="Juliana Pena",
+    author_email="juliana.pena@est.iudigital.edu.co",
     description="",
-    py_modules=["proyecto integrador V"],
+    py_modules=["actividad1","actividad2"],
     install_requires=[
-        "pandas==2.2.3",
-        "numpy",
+        "pandas",
         "openpyxl",
-        "requests==2.32.3",
-        "beautifulsoup4==4.13.3"
+        "requests",
+        "beautifulsoup4",
+        "sqlalchemy"
     ]
 )
+#pip install -e .

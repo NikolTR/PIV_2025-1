@@ -1,45 +1,79 @@
 from logger import Logger
 from collector import Collector
 import pandas as pd
-
+from datetime import datetime
 
 def main():
     logger = Logger()
-    df = pd.DataFrame()
-    logger.info('Main','main','Inicializar clase Logger')
+    logger.info("Main", "main", "Inicializar clase Logger")
 
-    collector = Collector(logger=logger)
-    logger.info('Main', 'main', 'Inicializando recolección de datos')
-    
+    collector = Collector(logger)
     df = collector.collector_data()
+
+    # ========== LIMPIEZA DE DATOS ==========
+
+    # Quitar columnas duplicadas
+    df = df.loc[:, ~df.columns.duplicated()]
+
+    # Convertir columna de fecha
+    df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
+    df = df.dropna(subset=['fecha'])  # Eliminar filas sin fecha
+
+    # Convertir columnas numéricas sin punto decimal explícito
+    columnas_numericas = ['abrir', 'max', 'min', 'cerrar', 'cierre_ajustado', 'volumen']
+    for col in columnas_numericas:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce') / 100  # divide para corregir escala
+
+    # ========== EXTRAER DÍA, MES Y AÑO DE LA FECHA ==========
     
-    if df.empty:
-        logger.error('Main', 'main', 'No se obtuvieron datos para guardar')
-    else:
-        logger.info('Main', 'main', f'Datos procesados: {df.shape[0]} filas, {len(df.columns)} columnas')
-        logger.info('Main', 'main', f'Columnas disponibles: {df.columns.tolist()}')
-        
-        required_columns = ['Fecha', 'Dia', 'Mes', 'Año', 'Fecha_Formateada']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        
-        if missing_columns:
-            logger.warning('Main', 'main', f'Faltan columnas requeridas: {missing_columns}')
-        else:
-            logger.info('Main', 'main', 'Todas las columnas requeridas están presentes')
-        
-        try:
-            file_path = "src/piv/static/data/Meta_Platforms_data.csv"
-            df.to_csv(file_path, index=False)
-            logger.info('Main', 'main', f'Datos guardados exitosamente en {file_path}')
-            
-            if os.path.exists(file_path):
-                file_size = os.path.getsize(file_path)
-                logger.info('Main', 'main', f'Archivo creado correctamente. Tamaño: {file_size} bytes')
-            else:
-                logger.error('Main', 'main', 'No se pudo verificar la creación del archivo')
-                
-        except Exception as e:
-            logger.error('Main', 'main', f'Error al guardar los datos: {e}')
-            
+    # Añadir columnas de día, mes (en número) y año
+    df['dia'] = df['fecha'].dt.day
+    
+    # Crear una columna para el mes en formato texto en español
+    meses = {
+        1: 'Enero',
+        2: 'Febrero',
+        3: 'Marzo',
+        4: 'Abril',
+        5: 'Mayo',
+        6: 'Junio',
+        7: 'Julio',
+        8: 'Agosto',
+        9: 'Septiembre',
+        10: 'Octubre',
+        11: 'Noviembre',
+        12: 'Diciembre'
+    }
+    
+    # Extraer el mes como número y luego convertirlo a texto
+    df['mes_num'] = df['fecha'].dt.month
+    df['mes'] = df['mes_num'].map(meses)
+    
+    # Eliminar la columna temporal de mes_num
+    df.drop('mes_num', axis=1, inplace=True)
+    
+    # Añadir columna de año
+    df['año'] = df['fecha'].dt.year
+
+    # ========== MOSTRAR DATOS LIMPIOS ==========
+
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_colwidth', None)
+    pd.set_option('display.width', None)
+
+    print("\n Vista previa de los datos limpios:")
+    print(df.head())
+    print(f"\n Dimensión final: {df.shape}")
+    print(f" Columnas: {df.columns.tolist()}")
+
+    # ========== FORMATO DE FECHA Y GUARDADO CSV ==========
+
+    df['fecha'] = df['fecha'].dt.strftime('%m/%d/%Y')
+
+    csv_path = "src/piv/static/data/meta_history.csv"
+    df.to_csv(csv_path, index=False, float_format='%.2f')  # exporta con punto decimal
+    print(f"\n CSV guardado en: {csv_path}")
+    
 if __name__ == "__main__":
     main()
