@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 setup(
-    name="edu_pad",
+    name="piv",
     version="0.0.1",
     author="Nikol Tamayo",
     author_email="",
