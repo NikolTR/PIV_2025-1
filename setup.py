@@ -7,11 +7,15 @@ setup(
     description="",
     py_modules=["actividad1","actividad2"],
     install_requires=[
-        "pandas",
+        "pandas==2.2.3",
         "openpyxl",
-        "requests",
+        "requests==2.32.3",
         "beautifulsoup4",
-        "sqlalchemy"
+        "sqlalchemy",
+        "scikit-learn>=0.24.0",
+        "matplotlib",
+        "seaborn",
+        "statsmodels"
     ]
 )
-#pip install -e .
+
