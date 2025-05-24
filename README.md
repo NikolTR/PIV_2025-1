@@ -16,7 +16,7 @@ Este proyecto realiza la extracción, limpieza y almacenamiento de datos histór
 
 ```
 src/
-├── edu_piv/
+├── piv/
 │   ├── collector.py         # Clase que recolecta y limpia los datos
 │   ├── logger.py            # Logger personalizado con estructura enriquecida
 │   ├── main.py              # Script principal para ejecutar el flujo
@@ -46,12 +46,12 @@ src/
 
 4. Ejecuta el script principal:
    ```bash
-   python src/edu_piv/main.py
+   python src/piv/main.py
    ```
 
 5. Revisa el archivo generado:
    ```
-   src/edu_piv/static/data/meta_history.csv
+   src/piv/static/data/meta_history.csv
    ```
 
 ---
