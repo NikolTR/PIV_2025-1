@@ -45,14 +45,13 @@ class Collector:
             # Renombrar columnas
             df.rename(columns={
                 'fecha': 'fecha',
-                'open': 'abrir',
-                'abrir': 'abrir',
-                'high': 'max',
-                'máx': 'max',
-                'low': 'min',
-                'mín': 'min',
+                'open': 'apertura',
+                'abrir': 'apertura',
+                'high': 'alto',
+                'máx': 'alto',
+                'low': 'bajo',
+                'mín': 'bajo',
                 'close': 'cerrar',
-                'cerrar': 'cerrar',
                 'adj close': 'cierre_ajustado',
                 'cierre ajustado': 'cierre_ajustado',
                 'volume': 'volumen',
@@ -60,11 +59,11 @@ class Collector:
             }, inplace=True)
 
             # Limpieza de valores numéricos
-            columnas_flotantes = ['abrir', 'max', 'min', 'cerrar', 'cierre_ajustado']
+            columnas_flotantes = ['apertura', 'alto', 'bajo', 'cerrar', 'cierre_ajustado']
             for col in columnas_flotantes:
                 if col in df.columns:
                     df[col] = df[col].astype(str).apply(lambda x: re.sub(r'[^\d.,-]', '', x))
-                    df[col] = df[col].str.replace(',', '')
+                    df[col] = df[col].str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
                     df[col] = pd.to_numeric(df[col], errors='coerce')
 
             if 'volumen' in df.columns:
@@ -72,6 +71,7 @@ class Collector:
                 df['volumen'] = pd.to_numeric(df['volumen'], errors='coerce', downcast='integer')
 
             # Formatear la columna fecha como MM/DD/YYYY
+
             if 'fecha' in df.columns:
                 df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
                 df['fecha'] = df['fecha'].dt.strftime('%m/%d/%Y')

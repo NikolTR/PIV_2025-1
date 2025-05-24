@@ -29,7 +29,7 @@ class Logger:
         file_handler = logging.FileHandler(self.log_file)
         file_handler.setFormatter(formatter)
 
-        base_logger = logging.getLogger("DolarAnalysis")
+        base_logger = logging.getLogger("MetaAnalysis")
         base_logger.setLevel(logging.INFO)
         base_logger.addHandler(file_handler)
 
