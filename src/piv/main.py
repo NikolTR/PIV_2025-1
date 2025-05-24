@@ -9,6 +9,7 @@ def main():
 
     collector = Collector(logger)
     df = collector.collector_data()
+    print(f"Columnas después de la recolección: {df.columns.tolist()}")
 
     # ========== LIMPIEZA DE DATOS ==========
 
@@ -16,14 +17,14 @@ def main():
     df = df.loc[:, ~df.columns.duplicated()]
 
     # Convertir columna de fecha
-    df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
+    df['fecha'] = pd.to_datetime(df['fecha'], format='%m/%d/%Y', errors='coerce')
     df = df.dropna(subset=['fecha'])  # Eliminar filas sin fecha
 
     # Convertir columnas numéricas sin punto decimal explícito
-    columnas_numericas = ['abrir', 'max', 'min', 'cerrar', 'cierre_ajustado', 'volumen']
+    columnas_numericas = ['apertura', 'alto', 'bajo', 'cerrar', 'cierre_ajustado', 'volumen']
     for col in columnas_numericas:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce') / 100  # divide para corregir escala
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
     # ========== EXTRAER DÍA, MES Y AÑO DE LA FECHA ==========
     
