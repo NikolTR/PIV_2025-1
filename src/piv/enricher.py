@@ -1,0 +1,54 @@
+import numpy as np
+import pandas as pd
+
+class Enricher:
+    def __init__(self, logger):
+        self.logger = logger
+
+    def calcular_kpi(self, df=pd.DataFrame()):
+        try:
+            df = df.copy()
+            df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
+            df = df.dropna(subset=['fecha'])
+            df = df.sort_values('fecha')
+
+            # Extraer día, mes y año
+            df['dia'] = df['fecha'].dt.day
+            meses = {
+                1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+                5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+                9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+            }
+            df['mes'] = df['fecha'].dt.month.map(meses)
+            df['año'] = df['fecha'].dt.year
+
+            # Convertir columnas numéricas necesarias a float
+            cols_num = ['apertura', 'alto', 'bajo', 'cerrar', 'cierre_ajustado', 'volumen']
+            for col in cols_num:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+
+            # Calcular KPIs:
+
+            # 1. Tasa de variación
+            df['tasa_variacion_ac'] = (df['cerrar'] - df['apertura']) / df['apertura']
+            
+            # 2. Media móvil
+            df['media_movil_5d'] = df['cerrar'].rolling(window=5).mean().fillna(0)
+
+            # 3. Volatilidad
+            df['volatilidad'] = df['cerrar'].rolling(window=5).std().fillna(0)
+
+            # 4. Retorno acumulado
+            df['retorno_acumulado'] = (1 + df['retorno_diario']).cumprod() - 1
+
+            # 3. Retorno diario: variación porcentual diaria del cierre
+            df['retorno_diario'] = df['cerrar'].pct_change().fillna(0)
+
+
+            self.logger.info("Enricher", "enrich_data", "Datos enriquecidos con KPIs y columnas de fecha")
+            return df
+
+        except Exception as e:
+            self.logger.error("Enricher", "enrich_data", f"Error al enriquecer datos: {e}")
+            return pd.DataFrame()

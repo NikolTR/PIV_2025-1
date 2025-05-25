@@ -1,6 +1,7 @@
 from logger import Logger
 from collector import Collector
 import pandas as pd
+from enricher import Enricher
 from datetime import datetime
 
 def main():
@@ -9,8 +10,10 @@ def main():
 
     collector = Collector(logger)
     df = collector.collector_data()
-    print(f"Columnas después de la recolección: {df.columns.tolist()}")
 
+    enricher = Enricher(logger)
+    df_enriched = enricher.calcular_kpi(df)
+    
     # ========== LIMPIEZA DE DATOS ==========
 
     # Quitar columnas duplicadas
@@ -25,37 +28,6 @@ def main():
     for col in columnas_numericas:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    # ========== EXTRAER DÍA, MES Y AÑO DE LA FECHA ==========
-    
-    # Añadir columnas de día, mes (en número) y año
-    df['dia'] = df['fecha'].dt.day
-    
-    # Crear una columna para el mes en formato texto en español
-    meses = {
-        1: 'Enero',
-        2: 'Febrero',
-        3: 'Marzo',
-        4: 'Abril',
-        5: 'Mayo',
-        6: 'Junio',
-        7: 'Julio',
-        8: 'Agosto',
-        9: 'Septiembre',
-        10: 'Octubre',
-        11: 'Noviembre',
-        12: 'Diciembre'
-    }
-    
-    # Extraer el mes como número y luego convertirlo a texto
-    df['mes_num'] = df['fecha'].dt.month
-    df['mes'] = df['mes_num'].map(meses)
-    
-    # Eliminar la columna temporal de mes_num
-    df.drop('mes_num', axis=1, inplace=True)
-    
-    # Añadir columna de año
-    df['año'] = df['fecha'].dt.year
 
     # ========== MOSTRAR DATOS LIMPIOS ==========
 
@@ -75,6 +47,10 @@ def main():
     csv_path = "src/piv/static/data/meta_history.csv"
     df.to_csv(csv_path, index=False, float_format='%.2f')  # exporta con punto decimal
     print(f"\n CSV guardado en: {csv_path}")
+
+    csv_path_enriched = "src/piv/static/data/meta_data_enricher.csv"
+    df_enriched.to_csv(csv_path_enriched, index=False, float_format='%.4f')
+    print(f"CSV enriquecido guardado en: {csv_path_enriched}")
     
 if __name__ == "__main__":
     main()
