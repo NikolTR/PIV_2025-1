@@ -86,7 +86,7 @@ class Collector:
             # Formatear la columna fecha como MM/DD/YYYY
             if 'fecha' in df.columns:
                 # Primero intentar convertir sin formato específico
-                df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
+                df['fecha'] = pd.to_datetime(df['fecha'], format='%m/%d/%Y', errors='coerce')
                 # Luego formatear
                 df['fecha'] = df['fecha'].dt.strftime('%m/%d/%Y')
 

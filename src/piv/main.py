@@ -37,7 +37,7 @@ def main():
     # Guardar archivo crudo
     csv_path_crudo = "src/piv/static/data/meta_history.csv"
     df_crudo.to_csv(csv_path_crudo, index=False, float_format='%.2f')
-    print(f"\n✅ CSV crudo guardado en: {csv_path_crudo}")
+    print(f"CSV crudo guardado en: {csv_path_crudo}")
 
     # ========== DATAFRAME ENRIQUECIDO ==========
 
@@ -56,7 +56,7 @@ def main():
     # Guardar archivo enriquecido
     csv_path_enriched = "src/piv/static/data/meta_data_enricher.csv"
     df_enriched_final.to_csv(csv_path_enriched, index=False, float_format='%.4f')
-    print(f"✅ CSV enriquecido guardado en: {csv_path_enriched}")
+    print(f"CSV enriquecido guardado en: {csv_path_enriched}")
 
     # ========== IMPRESIÓN DE CONTROL ==========
     print("\n--- DataFrame crudo (primeras filas) ---")
