@@ -13,48 +13,36 @@ def main():
 
     # ========== LIMPIEZA DE DATOS ==========
 
-    # Quitar columnas duplicadas
     df = df.loc[:, ~df.columns.duplicated()]
-
-    # Convertir columna de fecha
     df['fecha'] = pd.to_datetime(df['fecha'], format='%m/%d/%Y', errors='coerce')
-    df = df.dropna(subset=['fecha'])  # Eliminar filas sin fecha
+    df = df.dropna(subset=['fecha'])
 
-    # Convertir columnas numéricas sin punto decimal explícito
     columnas_numericas = ['apertura', 'alto', 'bajo', 'cerrar', 'cierre_ajustado', 'volumen']
     for col in columnas_numericas:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
+    # Seleccionar solo columnas crudas
+    columnas_crudas = ['fecha', 'apertura', 'alto', 'bajo', 'cerrar', 'cierre_ajustado', 'volumen']
+    df_crudo = df[columnas_crudas].copy()
+
     # ========== ENRIQUECER DATOS CON KPIs ==========
     enricher = Enricher(logger)
-    df = enricher.calcular_kpi(df)  # Aquí actualizamos directamente df
+    df_enriched = enricher.calcular_kpi(df_crudo.copy())  # Importante: enriquecer solo desde crudo
 
-    # ========== MOSTRAR DATOS LIMPIOS ==========
-
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.max_colwidth', None)
-    pd.set_option('display.width', None)
-
-    print("\n Vista previa de los datos limpios y enriquecidos:")
-    print(df.head())
-    print(f"\n Dimensión final: {df.shape}")
-    print(f" Columnas: {df.columns.tolist()}")
-
-    # ========== FORMATO DE FECHA Y GUARDADO CSV ==========
-
-    df['fecha'] = df['fecha'].dt.strftime('%m/%d/%Y')
-
-    # Asegurarse que la carpeta existe
+    # ========== GUARDADO DE CSVs ==========
     os.makedirs('src/piv/static/data', exist_ok=True)
 
-    csv_path = "src/piv/static/data/meta_history.csv"
-    df.to_csv(csv_path, index=False, float_format='%.2f')  # exporta con punto decimal
-    print(f"\n CSV guardado en: {csv_path}")
+    # Guardar CSV crudo
+    df_crudo['fecha'] = df_crudo['fecha'].dt.strftime('%m/%d/%Y')
+    df_crudo.to_csv("src/piv/static/data/meta_history.csv", index=False, float_format='%.2f')
+    print("✅ CSV crudo guardado en: src/piv/static/data/meta_history.csv")
 
-    csv_path_enriched = "src/piv/static/data/meta_data_enricher.csv"
-    df.to_csv(csv_path_enriched, index=False, float_format='%.4f')
-    print(f"CSV enriquecido guardado en: {csv_path_enriched}")
+    # Guardar CSV enriquecido
+    df_enriched['fecha'] = pd.to_datetime(df_enriched['fecha'], errors='coerce').dt.strftime('%m/%d/%Y')
+    df_enriched.to_csv("src/piv/static/data/meta_data_enricher.csv", index=False, float_format='%.4f')
+    print("✅ CSV enriquecido guardado en: src/piv/static/data/meta_data_enricher.csv")
 
 if __name__ == "__main__":
     main()
+
