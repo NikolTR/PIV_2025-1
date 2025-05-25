@@ -4,7 +4,6 @@ import os
 
 class CustomAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
-        # Garantiza que siempre estén presentes los campos personalizados
         if "extra" not in kwargs:
             kwargs["extra"] = {}
         if "class_name" not in kwargs["extra"]:
@@ -20,7 +19,6 @@ class Logger:
 
         self.log_file = f"logs/meta_analysis_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
-        # Configura el formateador y el handler manualmente
         formatter = logging.Formatter(
             "[%(asctime)s | %(name)s | %(class_name)s | %(function_name)s | %(levelname)s] %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S"
