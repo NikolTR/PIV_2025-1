@@ -13,14 +13,18 @@ class Enricher:
             df = df.sort_values('fecha')
 
             df['dia'] = df['fecha'].dt.day
+
             meses = {
                 1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
                 5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
                 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
             }
+
             df['mes'] = df['fecha'].dt.month.map(meses)
             df['año'] = df['fecha'].dt.year
 
+            df['año_mes'] = df['fecha'].dt.to_period('M').astype(str)
+            
             cols_num = ['apertura', 'alto', 'bajo', 'cerrar', 'cierre_ajustado', 'volumen']
             for col in cols_num:
                 if col in df.columns:
