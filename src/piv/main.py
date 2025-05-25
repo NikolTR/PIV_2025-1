@@ -28,7 +28,7 @@ def main():
     os.makedirs('src/piv/static/data', exist_ok=True)
     path_crudo = "src/piv/static/data/meta_history.csv"
     df_crudo.to_csv(path_crudo, index=False, float_format='%.2f')
-    print(f"✅ CSV crudo guardado en: {path_crudo}")
+    print(f"CSV crudo guardado en: {path_crudo}")
 
     # === 3. ENRIQUECER CON KPIs ===
     enricher = Enricher(logger)
@@ -38,7 +38,7 @@ def main():
 
     path_enriched = "src/piv/static/data/meta_data_enricher.csv"
     df_enriched.to_csv(path_enriched, index=False, float_format='%.4f')
-    print(f"✅ CSV enriquecido guardado en: {path_enriched}")
+    print(f"CSV enriquecido guardado en: {path_enriched}")
 
 if __name__ == "__main__":
     main()
