@@ -8,7 +8,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 class Modeller:
     def __init__(self, logger):
         self.logger = logger
-        self.model_path = os.path.join("static", "models")
+        self.model_path = os.path.join("static", "data", "models")
         self.model_file = os.path.join(self.model_path, "model.pkl")
 
         if not os.path.exists(self.model_path):
@@ -18,41 +18,32 @@ class Modeller:
         return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
     def entrenar(self, df):
-        """
-        Entrena un modelo ARIMA(1,1,1) con la columna 'cierre_ajustado',
-        calcula métricas y guarda el modelo en un archivo .pkl
-        """
         try:
             df = df.copy()
-            y = df['cierre_ajustado'].dropna()
+            df = df.dropna(subset=["cierre_ajustado"])
 
-            # Entrenar modelo ARIMA (ejemplo orden fijo)
-            model = ARIMA(y, order=(1, 1, 1))
+            # Entrenar modelo ARIMA
+            series = df["cierre_ajustado"]
+            model = ARIMA(series, order=(1, 1, 1))
             model_fit = model.fit()
 
-            # Calcular métricas con fittedvalues alineadas
+            # Predicciones y métricas
             pred = model_fit.fittedvalues
-            y_valid = y.iloc[1:]  # porque ARIMA(1,1,1) pierde una observación
+            y_valid = series[-len(pred):]
 
             mae = mean_absolute_error(y_valid, pred)
             rmse = np.sqrt(mean_squared_error(y_valid, pred))
             r2 = r2_score(y_valid, pred)
-            mape = self.mean_absolute_percentage_error(y_valid, pred)
 
-            self.logger.info(f"MAE: {mae:.2f}")
-            self.logger.info(f"RMSE: {rmse:.2f}")
-            self.logger.info(f"MAPE: {mape:.2f}%")
-            self.logger.info(f"R²: {r2:.2f}")
-            self.logger.info("Modelo entrenado y métricas calculadas correctamente.")
+            self.logger.info("Modeller", "entrenar", f"MAE: {mae:.2f}, RMSE: {rmse:.2f}, R2: {r2:.2f}")
 
-            # Guardar modelo
-            with open(self.model_file, 'wb') as f:
+            with open(self.model_file, "wb") as f:
                 pickle.dump(model_fit, f)
-            self.logger.info(f"Modelo guardado en {self.model_file}")
 
             return True
+
         except Exception as e:
-            self.logger.error(f"Error en entrenamiento: {str(e)}")
+            self.logger.error("Modeller", "entrenar", f"Error en entrenamiento: {str(e)}")
             return False
 
     def predecir(self, df, steps=1):
@@ -65,8 +56,9 @@ class Modeller:
                 model_fit = pickle.load(f)
 
             forecast = model_fit.forecast(steps=steps)
-            self.logger.info(f"Predicción para {steps} paso(s): {forecast.tolist()}")
+            self.logger.info("Modeller", "predecir", f"Predicción para {steps} paso(s): {forecast.tolist()}")
             return forecast.tolist()
+
         except Exception as e:
-            self.logger.error(f"Error en predicción: {str(e)}")
+            self.logger.error("Modeller", "predecir", f"Error en predicción: {str(e)}")
             return []
