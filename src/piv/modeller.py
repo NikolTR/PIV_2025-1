@@ -8,7 +8,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 class Modeller:
     def __init__(self, logger):
         self.logger = logger
-        self.model_path = "static/models/model.pkl"
+        self.model_path = os.path.join("static", "models")
         self.model_file = os.path.join(self.model_path, "model.pkl")
 
         if not os.path.exists(self.model_path):
