@@ -1,7 +1,10 @@
 from logger import Logger
 from collector import Collector
 from enricher import Enricher
+from modeller import Modeller 
+
 import pandas as pd
+
 
 def main():
     logger = Logger()
@@ -42,11 +45,21 @@ def main():
     df_enriched_final.to_csv(path_enriched, index=False, float_format='%.4f')
     print(f"CSV enriquecido guardado: {path_enriched}")
 
+    # ========== ENTRENAR Y GUARDAR MODELO ==========
+    modeller = Modeller(logger)
+    resultado_entrenamiento = modeller.entrenar(df_crudo)
+
+    if resultado_entrenamiento:
+        print("Modelo entrenado y guardado correctamente.")
+    else:
+        print("Error al entrenar o guardar el modelo.")
+
     # Control visual
     print("\n--- Vista previa crudo ---")
     print(df_crudo.head())
     print("\n--- Vista previa enriquecido ---")
     print(df_enriched_final.head())
+
 
 if __name__ == "__main__":
     main()
