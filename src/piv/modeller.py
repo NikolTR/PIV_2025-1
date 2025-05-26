@@ -1,95 +1,72 @@
 import os
-import pandas as pd
 import pickle
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
-
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 class Modeller:
     def __init__(self, logger):
         self.logger = logger
-        self.model_ruta = "src/edu_piv/static/models/"
-        self.pkl_ruta = os.path.join(self.model_ruta, "dolar_model.pkl")
+        self.model_path = "static/models/"
+        self.model_file = os.path.join(self.model_path, "model.pkl")
 
-        if not os.path.exists(self.model_ruta):
-            os.makedirs(self.model_ruta)
+        if not os.path.exists(self.model_path):
+            os.makedirs(self.model_path)
 
-    def preparar_df(self, df=pd.DataFrame()):
-        df = df.copy()
+    def mean_absolute_percentage_error(self, y_true, y_pred):
+        return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+    def entrenar(self, df):
+        """
+        Entrena un modelo ARIMA(1,1,1) con la columna 'cierre_ajustado',
+        calcula métricas y guarda el modelo en un archivo .pkl
+        """
         try:
-            df['year'] = df['fecha'].dt.year
-            df['month'] = df['fecha'].dt.month
-            df['day'] = df['fecha'].dt.day
-            df['dayofweek'] = df['fecha'].dt.dayofweek
+            df = df.copy()
+            y = df['cierre_ajustado'].dropna()
 
-            # Definimos X y y
-            X = df[['year', 'month', 'day', 'dayofweek']]
-            y = df['cierre_ajustado']
+            # Entrenar modelo ARIMA (ejemplo orden fijo)
+            model = ARIMA(y, order=(1, 1, 1))
+            model_fit = model.fit()
 
-            return (X, y), True
-        except Exception as e:
-            self.logger.log_error(f"Error al preparar el DataFrame: {str(e)}")
-            return (pd.DataFrame(), pd.Series()), False
+            # Calcular métricas con fittedvalues alineadas
+            pred = model_fit.fittedvalues
+            y_valid = y.iloc[1:]  # porque ARIMA(1,1,1) pierde una observación
 
-    def entrenar_df(self, df=pd.DataFrame()):
-        df = df.copy()
-        try:
-            (X, y), exito = self.preparar_df(df)
-            if not exito:
-                return None, False
+            mae = mean_absolute_error(y_valid, pred)
+            rmse = np.sqrt(mean_squared_error(y_valid, pred))
+            r2 = r2_score(y_valid, pred)
+            mape = self.mean_absolute_percentage_error(y_valid, pred)
 
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, random_state=42
-            )
-
-            model = RandomForestRegressor(n_estimators=100, random_state=42)
-            model.fit(X_train, y_train)
+            self.logger.info(f"MAE: {mae:.2f}")
+            self.logger.info(f"RMSE: {rmse:.2f}")
+            self.logger.info(f"MAPE: {mape:.2f}%")
+            self.logger.info(f"R²: {r2:.2f}")
+            self.logger.info("Modelo entrenado y métricas calculadas correctamente.")
 
             # Guardar modelo
-            with open(self.pkl_ruta, 'wb') as f:
-                pickle.dump(model, f)
+            with open(self.model_file, 'wb') as f:
+                pickle.dump(model_fit, f)
+            self.logger.info(f"Modelo guardado en {self.model_file}")
 
-            # Evaluación
-            y_pred = model.predict(X_test)
-            mse = mean_squared_error(y_test, y_pred)
-            r2 = r2_score(y_test, y_pred)
-            self.logger.log_info(f"Modelo entrenado. MSE: {mse:.2f}, R2: {r2:.4f}")
-
-            return model, True
+            return True
         except Exception as e:
-            self.logger.log_error(f"Error al entrenar modelo: {str(e)}")
-            return None, False
+            self.logger.error(f"Error en entrenamiento: {str(e)}")
+            return False
 
-    def predecir_df(self, df=pd.DataFrame()):
-        df = df.copy()
+    def predecir(self, df, steps=1):
+        """
+        Carga modelo desde .pkl y genera predicción (por defecto 1 paso adelante)
+        """
         try:
-            if not os.path.exists(self.pkl_ruta):
-                self.logger.log_error("Modelo no encontrado para predicción.")
-                return df, False, None, None, None
+            df = df.copy()
+            with open(self.model_file, 'rb') as f:
+                model_fit = pickle.load(f)
 
-            with open(self.pkl_ruta, 'rb') as f:
-                model = pickle.load(f)
-
-            # Obtener última fila (última fecha conocida)
-            df = df.sort_values(by='fecha')
-            ultima_fecha = df['fecha'].max()
-            nueva_fecha = ultima_fecha + pd.Timedelta(days=1)
-
-            nueva_fila = {
-                'fecha': nueva_fecha,
-                'year': nueva_fecha.year,
-                'month': nueva_fecha.month,
-                'day': nueva_fecha.day,
-                'dayofweek': nueva_fecha.dayofweek
-            }
-
-            df_nuevo = pd.DataFrame([nueva_fila])
-            X_new = df_nuevo[['year', 'month', 'day', 'dayofweek']]
-            valor_predicho = model.predict(X_new)[0]
-
-            self.logger.log_info(f"Predicción para {nueva_fecha.date()}: {valor_predicho:.2f}")
-            return df, True, valor_predicho, nueva_fecha, df.shape[0] - 1
+            forecast = model_fit.forecast(steps=steps)
+            self.logger.info(f"Predicción para {steps} paso(s): {forecast.tolist()}")
+            return forecast.tolist()
         except Exception as e:
-            self.logger.log_error(f"Error al predecir: {str(e)}")
-            return df, False, None, None, None
+            self.logger.error(f"Error en predicción: {str(e)}")
+            return []
