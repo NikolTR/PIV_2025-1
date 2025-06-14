@@ -45,22 +45,27 @@ def main():
     df_enriched_final.to_csv(path_enriched, index=False, float_format='%.4f')
     print(f"CSV enriquecido guardado: {path_enriched}")
 
-    # ========== ENTRENAR Y GUARDAR MODELO ==========
+    # ========== ENTRENAR MODELO Y GUARDAR PREDICCIONES ==========
     modeller = Modeller(logger)
     resultado_entrenamiento = modeller.entrenar(df_crudo)
 
     if resultado_entrenamiento:
         print("Modelo entrenado y guardado correctamente.")
+
+        # Calcular predicción
+        predicciones = modeller.predecir(df_crudo, steps=5)  
+
+        # Guardar predicciones en CSV
+        df_pred = pd.DataFrame({
+            'fecha_prediccion': pd.date_range(
+                start=pd.to_datetime(df_crudo['fecha'].max(), format='%m/%d/%Y') + pd.Timedelta(days=1),
+                periods=len(predicciones),
+                freq='D'
+            ),
+            'cierre_ajustado_predicho': predicciones
+        })
+        path_pred = "src/piv/static/data/meta_predicciones.csv"
+        df_pred.to_csv(path_pred, index=False, float_format='%.4f')
+        print(f"Predicciones guardadas: {path_pred}")
     else:
         print("Error al entrenar o guardar el modelo.")
-
-    # Control visual
-    print("\n--- Vista previa crudo ---")
-    print(df_crudo.head())
-    print("\n--- Vista previa enriquecido ---")
-    print(df_enriched_final.head())
-
-
-if __name__ == "__main__":
-    main()
-

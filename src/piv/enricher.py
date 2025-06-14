@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 class Enricher:
-    def __init__(self, logger):
+    def __init__(self, logger, modeller=None):
         self.logger = logger
+        self.modeller = modeller
 
     def calcular_kpi(self, df=pd.DataFrame()):
         try:
@@ -36,22 +36,39 @@ class Enricher:
             df['media_movil_5d'] = df['cerrar'].rolling(window=5).mean().fillna(0)
             df['volatilidad'] = df['cerrar'].rolling(window=5).std().fillna(0)
 
-            # ✅ Cálculo de métricas de evaluación si existen las columnas necesarias
-            if {'valor_real', 'valor_predicho'}.issubset(df.columns):
-                mae = mean_absolute_error(df['valor_real'], df['valor_predicho'])
-                rmse = mean_squared_error(df['valor_real'], df['valor_predicho'], squared=False)
-                r2 = r2_score(df['valor_real'], df['valor_predicho'])
-                mape = np.mean(np.abs((df['valor_real'] - df['valor_predicho']) / df['valor_real'])) * 100
+            # === PREDICCIÓN Y MÉTRICAS CON ARIMA ===
+            if self.modeller:
+                steps = 5
+                predicciones = self.modeller.predecir(df, steps=steps)
 
-                # Se añaden como columnas constantes para que puedan ser exportadas o inspeccionadas
-                df['MAE'] = mae
-                df['RMSE'] = rmse
-                df['R2'] = r2
-                df['MAPE'] = mape
+                if predicciones:
+                    last_date = df['fecha'].max()
+                    fechas_pred = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=steps)
 
-                self.logger.info("Enricher", "calcular_kpi", f"Métricas calculadas: MAE={mae:.2f}, RMSE={rmse:.2f}, R2={r2:.2f}, MAPE={mape:.2f}%")
-            else:
-                self.logger.warning("Enricher", "calcular_kpi", "No se encontraron columnas 'valor_real' y 'valor_predicho', se omitieron métricas.")
+                    pred_df = pd.DataFrame({
+                        'fecha': fechas_pred,
+                        'pred_arima': predicciones
+                    })
+
+                    df = pd.concat([df, pred_df], ignore_index=True)
+
+                    y_true = df['cierre_ajustado'].dropna().values[-steps:]
+                    y_pred = predicciones[-len(y_true):]
+
+                    if len(y_true) == len(y_pred):
+                        mae = np.mean(np.abs(y_true - y_pred))
+                        rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
+                        r2 = r2_score(y_true, y_pred)
+                        mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+
+                        df['mae'] = mae
+                        df['rmse'] = rmse
+                        df['r2'] = r2
+                        df['mape'] = mape
+
+                        self.logger.info("Enricher", "calcular_kpi", f"ARIMA Métricas - MAE: {mae:.2f}, RMSE: {rmse:.2f}, R2: {r2:.2f}, MAPE: {mape:.2f}%")
+                    else:
+                        self.logger.warning("Enricher", "calcular_kpi", "No se pudo calcular métricas: longitudes distintas")
 
             self.logger.info("Enricher", "calcular_kpi", "KPIs calculados correctamente")
             return df
