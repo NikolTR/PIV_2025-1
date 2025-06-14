@@ -1,26 +1,20 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.graph_objects as go
 import plotly.express as px
+import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pickle
 import os
+import numpy as np
 from pathlib import Path
 from datetime import datetime, timedelta
-import warnings
-warnings.filterwarnings('ignore')
-
-# Importes locales
 from modeller import Modeller
 from logger import Logger
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# =================== CONFIGURACIÓN DE PÁGINA ===================
+# =================== CONFIGURACIÓN DE LA PÁGINA ===================
 st.set_page_config(
-    page_title="Meta Platforms Dashboard",
+    page_title="Meta Platforms Analytics Dashboard",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -30,220 +24,112 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        background: linear-gradient(90deg, #1f77b4, #ff7f0e);
-        padding: 1rem;
-        border-radius: 10px;
-        color: white;
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #1877f2;
         text-align: center;
         margin-bottom: 2rem;
+        padding: 1rem;
+        background: linear-gradient(90deg, #f0f2f6, #ffffff);
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .metric-card {
-        background: #f0f2f6;
+    
+    .metric-container {
+        background: white;
         padding: 1rem;
         border-radius: 10px;
-        border-left: 4px solid #1f77b4;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-left: 4px solid #1877f2;
         margin: 0.5rem 0;
     }
+    
+    .section-header {
+        color: #1877f2;
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin: 2rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #1877f2;
+    }
+    
     .info-box {
-        background: #e8f4fd;
+        background: #f8f9fa;
         padding: 1rem;
         border-radius: 8px;
-        border: 1px solid #b3d9ff;
+        border-left: 4px solid #28a745;
         margin: 1rem 0;
     }
+    
     .warning-box {
         background: #fff3cd;
         padding: 1rem;
         border-radius: 8px;
-        border: 1px solid #ffeaa7;
+        border-left: 4px solid #ffc107;
         margin: 1rem 0;
     }
-    .success-box {
-        background: #d4edda;
+    
+    .error-box {
+        background: #f8d7da;
         padding: 1rem;
         border-radius: 8px;
-        border: 1px solid #c3e6cb;
+        border-left: 4px solid #dc3545;
         margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# =================== HEADER PRINCIPAL ===================
-st.markdown("""
-<div class="main-header">
-    <h1>📊 Dashboard de Análisis Financiero</h1>
-    <h2>Meta Platforms Inc. (META)</h2>
-    <p>Pipeline completo de extracción, enriquecimiento, modelamiento y visualización</p>
-</div>
-""", unsafe_allow_html=True)
-
 # =================== CONFIGURACIÓN DE RUTAS ===================
 BASE_DIR = Path(__file__).parent
 DATA_PATH = BASE_DIR / "static" / "data" / "meta_data_enricher.csv"
-RAW_DATA_PATH = BASE_DIR / "static" / "data" / "meta_history.csv"
+HISTORY_PATH = BASE_DIR / "static" / "data" / "meta_history.csv"
+PREDICTIONS_PATH = BASE_DIR / "static" / "data" / "meta_predicciones.csv"
 MODEL_PATH = BASE_DIR / "static" / "data" / "models" / "model.pkl"
 
 # =================== FUNCIONES DE CARGA DE DATOS ===================
 @st.cache_data
-def load_enriched_data():
-    """Carga los datos enriquecidos con KPIs calculados"""
+def load_data():
+    """Carga los datos enriquecidos"""
     try:
         df = pd.read_csv(DATA_PATH)
-        df['fecha'] = pd.to_datetime(df['fecha'], format='%m/%d/%Y')
-        return df.sort_values('fecha')
+        df['fecha'] = pd.to_datetime(df['fecha'])
+        return df
     except Exception as e:
         st.error(f"Error al cargar datos enriquecidos: {e}")
         return pd.DataFrame()
 
 @st.cache_data
-def load_raw_data():
-    """Carga los datos históricos sin procesar"""
+def load_predictions():
+    """Carga las predicciones si existen"""
     try:
-        df = pd.read_csv(RAW_DATA_PATH)
-        df['fecha'] = pd.to_datetime(df['fecha'], format='%m/%d/%Y')
-        return df.sort_values('fecha')
+        if PREDICTIONS_PATH.exists():
+            df_pred = pd.read_csv(PREDICTIONS_PATH)
+            df_pred['fecha'] = pd.to_datetime(df_pred['fecha'])
+            return df_pred
+        return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error al cargar datos históricos: {e}")
+        st.error(f"Error al cargar predicciones: {e}")
         return pd.DataFrame()
 
-# =================== SIDEBAR - CONTROLES ===================
-with st.sidebar:
-    st.markdown("## 🎛️ Panel de Control")
-    
-    # Selector de vista
-    vista_seleccionada = st.selectbox(
-        "Selecciona la vista:",
-        ["📈 Análisis de Indicadores", "🤖 Modelo ARIMA", "📊 Dashboard Completo", "📋 Datos Históricos"]
-    )
-    
-    st.markdown("---")
-    
-    # Filtros de fecha
-    st.markdown("### 📅 Filtros de Fecha")
-    df_enriched = load_enriched_data()
-    
-    if not df_enriched.empty:
-        fecha_min = df_enriched['fecha'].min().date()
-        fecha_max = df_enriched['fecha'].max().date()
-        
-        fecha_inicio = st.date_input(
-            "Fecha de inicio:",
-            value=fecha_min,
-            min_value=fecha_min,
-            max_value=fecha_max
-        )
-        
-        fecha_fin = st.date_input(
-            "Fecha de fin:",
-            value=fecha_max,
-            min_value=fecha_min,
-            max_value=fecha_max
-        )
-        
-        # Filtrar datos por fecha
-        mask = (df_enriched['fecha'].dt.date >= fecha_inicio) & (df_enriched['fecha'].dt.date <= fecha_fin)
-        df_filtered = df_enriched.loc[mask]
-    else:
-        df_filtered = pd.DataFrame()
-        st.error("No se pudieron cargar los datos")
-
-# =================== FUNCIONES DE VISUALIZACIÓN ===================
-def create_kpi_chart(df, kpi, title):
-    """Crea un gráfico interactivo para un KPI específico"""
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=df['fecha'],
-        y=df[kpi],
-        mode='lines',
-        name=title,
-        line=dict(width=2, color='#1f77b4'),
-        hovertemplate='<b>Fecha:</b> %{x}<br><b>' + title + ':</b> %{y:.4f}<extra></extra>'
-    ))
-    
-    fig.update_layout(
-        title=f"{title} - Meta Platforms",
-        xaxis_title="Fecha",
-        yaxis_title=title,
-        hovermode='x unified',
-        template='plotly_white',
-        height=400
-    )
-    
-    return fig
-
-def create_price_chart(df):
-    """Crea un gráfico de velas japonesas con volumen"""
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.1,
-        subplot_titles=('Precio', 'Volumen'),
-        row_width=[0.7, 0.3]
-    )
-    
-    # Gráfico de velas
-    fig.add_trace(
-        go.Candlestick(
-            x=df['fecha'],
-            open=df['apertura'],
-            high=df['alto'],
-            low=df['bajo'],
-            close=df['cerrar'],
-            name="Precio"
-        ),
-        row=1, col=1
-    )
-    
-    # Media móvil
-    if 'media_movil_5d' in df.columns:
-        fig.add_trace(
-            go.Scatter(
-                x=df['fecha'],
-                y=df['media_movil_5d'],
-                mode='lines',
-                name='Media Móvil 5D',
-                line=dict(color='orange', width=2)
-            ),
-            row=1, col=1
-        )
-    
-    # Volumen
-    fig.add_trace(
-        go.Bar(
-            x=df['fecha'],
-            y=df['volumen'],
-            name='Volumen',
-            marker_color='lightblue'
-        ),
-        row=2, col=1
-    )
-    
-    fig.update_layout(
-        title="Análisis de Precios y Volumen - Meta Platforms",
-        xaxis_rangeslider_visible=False,
-        height=600,
-        template='plotly_white'
-    )
-    
-    return fig
-
-def calculate_model_metrics():
-    """Calcula las métricas del modelo ARIMA"""
+@st.cache_data
+def load_model_metrics():
+    """Calcula las métricas del modelo si existe"""
     try:
-        if not os.path.exists(MODEL_PATH):
-            return None, "Modelo no encontrado"
+        if not MODEL_PATH.exists():
+            return None
         
         with open(MODEL_PATH, "rb") as f:
             model = pickle.load(f)
         
-        # Cargar datos para validación
-        df_raw = load_raw_data()
-        if df_raw.empty:
-            return None, "Datos no disponibles"
-        
-        serie_real = df_raw["cierre_ajustado"].dropna()
+        df = load_data()
+        if df.empty:
+            return None
+            
+        df_model = df.dropna(subset=["cierre_ajustado"]).copy()
+        serie_real = df_model["cierre_ajustado"]
         pred = model.fittedvalues
+        
+        # Alinear series para comparación
         y_valid = serie_real[-len(pred):]
         
         # Calcular métricas
@@ -252,358 +138,411 @@ def calculate_model_metrics():
         r2 = r2_score(y_valid, pred)
         mape = np.mean(np.abs((y_valid - pred) / y_valid)) * 100
         
-        metrics = {
-            'MAE': mae,
-            'RMSE': rmse,
-            'R²': r2,
-            'MAPE': mape,
-            'pred': pred,
-            'y_valid': y_valid,
-            'model': model
+        return {
+            'mae': mae,
+            'rmse': rmse,
+            'r2': r2,
+            'mape': mape,
+            'model': model,
+            'serie_real': serie_real,
+            'pred': pred
         }
-        
-        return metrics, "OK"
-        
     except Exception as e:
-        return None, f"Error al calcular métricas: {e}"
+        st.error(f"Error al cargar métricas del modelo: {e}")
+        return None
 
-# =================== VISTA: ANÁLISIS DE INDICADORES ===================
-if vista_seleccionada == "📈 Análisis de Indicadores":
-    if df_filtered.empty:
-        st.error("No hay datos disponibles para el rango de fechas seleccionado")
-    else:
-        st.markdown("## 📈 Análisis de Indicadores Financieros")
-        
-        # Estadísticas rápidas
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            precio_actual = df_filtered['cerrar'].iloc[-1]
-            precio_anterior = df_filtered['cerrar'].iloc[-2] if len(df_filtered) > 1 else precio_actual
-            cambio = precio_actual - precio_anterior
-            st.metric("Precio Actual", f"${precio_actual:.2f}", f"{cambio:+.2f}")
-        
-        with col2:
-            vol_promedio = df_filtered['volatilidad'].mean()
-            st.metric("Volatilidad Promedio", f"{vol_promedio:.4f}")
-        
-        with col3:
-            retorno_total = df_filtered['retorno_acumulado'].iloc[-1]
-            st.metric("Retorno Acumulado", f"{retorno_total:.2%}")
-        
-        with col4:
-            vol_total = df_filtered['volumen'].sum()
-            st.metric("Volumen Total", f"{vol_total:,.0f}")
-        
-        st.markdown("---")
-        
-        # Selector de KPI
-        kpi_options = {
-            'retorno_diario': 'Retorno Diario',
-            'tasa_variacion_ac': 'Tasa de Variación (Apertura-Cierre)',
-            'retorno_acumulado': 'Retorno Acumulado',
-            'media_movil_5d': 'Media Móvil 5 Días',
-            'volatilidad': 'Volatilidad (Rolling 5D)'
-        }
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            selected_kpi = st.selectbox(
-                "Selecciona un indicador para visualizar:",
-                options=list(kpi_options.keys()),
-                format_func=lambda x: kpi_options[x]
-            )
-        
-        with col2:
-            show_stats = st.checkbox("Mostrar estadísticas", value=True)
-        
-        # Gráfico del KPI seleccionado
-        fig_kpi = create_kpi_chart(df_filtered, selected_kpi, kpi_options[selected_kpi])
-        st.plotly_chart(fig_kpi, use_container_width=True)
-        
-        # Estadísticas del KPI
-        if show_stats:
-            st.markdown(f"### 📊 Estadísticas: {kpi_options[selected_kpi]}")
-            
-            col1, col2, col3, col4, col5 = st.columns(5)
-            stats = df_filtered[selected_kpi].describe()
-            
-            col1.metric("Media", f"{stats['mean']:.4f}")
-            col2.metric("Mediana", f"{stats['50%']:.4f}")
-            col3.metric("Desv. Estándar", f"{stats['std']:.4f}")
-            col4.metric("Mínimo", f"{stats['min']:.4f}")
-            col5.metric("Máximo", f"{stats['max']:.4f}")
-        
-        # Gráfico de precios con volumen
-        st.markdown("### 💹 Análisis de Precios y Volumen")
-        fig_price = create_price_chart(df_filtered)
-        st.plotly_chart(fig_price, use_container_width=True)
+# =================== HEADER PRINCIPAL ===================
+st.markdown('<div class="main-header">📊 Meta Platforms Analytics Dashboard</div>', unsafe_allow_html=True)
 
-# =================== VISTA: MODELO ARIMA ===================
-elif vista_seleccionada == "🤖 Modelo ARIMA":
-    st.markdown("## 🤖 Modelo de Predicción ARIMA")
+# =================== SIDEBAR ===================
+st.sidebar.title("🔧 Configuraciones")
+st.sidebar.markdown("---")
+
+# Cargar datos
+df = load_data()
+df_predictions = load_predictions()
+model_metrics = load_model_metrics()
+
+if df.empty:
+    st.error("⚠️ No se pudieron cargar los datos. Ejecuta `main.py` primero.")
+    st.stop()
+
+# Configuración de fechas en sidebar
+fecha_min = df['fecha'].min()
+fecha_max = df['fecha'].max()
+
+st.sidebar.subheader("📅 Filtros de Fecha")
+fecha_inicio = st.sidebar.date_input(
+    "Fecha de inicio",
+    value=fecha_min,
+    min_value=fecha_min,
+    max_value=fecha_max
+)
+fecha_fin = st.sidebar.date_input(
+    "Fecha de fin",
+    value=fecha_max,
+    min_value=fecha_min,
+    max_value=fecha_max
+)
+
+# Filtrar datos por fecha
+df_filtered = df[(df['fecha'] >= pd.to_datetime(fecha_inicio)) & 
+                 (df['fecha'] <= pd.to_datetime(fecha_fin))]
+
+# =================== MÉTRICAS PRINCIPALES ===================
+st.markdown('<div class="section-header">📈 Resumen Ejecutivo</div>', unsafe_allow_html=True)
+
+if not df_filtered.empty:
+    col1, col2, col3, col4, col5 = st.columns(5)
     
-    # Calcular métricas del modelo
-    metrics, status = calculate_model_metrics()
-    
-    if metrics is None:
-        st.markdown(f"""
-        <div class="warning-box">
-            <h4>⚠️ Modelo no disponible</h4>
-            <p>{status}</p>
-            <p>Por favor, ejecuta <code>main.py</code> para entrenar el modelo.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        # Mostrar métricas
-        st.markdown("### 📊 Métricas de Evaluación del Modelo")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown("""
-            <div class="metric-card">
-                <h4>MAE</h4>
-                <h2>{:.2f}</h2>
-                <p>Error Absoluto Medio</p>
-            </div>
-            """.format(metrics['MAE']), unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("""
-            <div class="metric-card">
-                <h4>RMSE</h4>
-                <h2>{:.2f}</h2>
-                <p>Raíz del Error Cuadrático</p>
-            </div>
-            """.format(metrics['RMSE']), unsafe_allow_html=True)
-        
-        with col3:
-            color = "green" if metrics['R²'] > 0.5 else "orange"
-            st.markdown("""
-            <div class="metric-card">
-                <h4>R²</h4>
-                <h2 style="color: {}">{:.3f}</h2>
-                <p>Coeficiente de Determinación</p>
-            </div>
-            """.format(color, metrics['R²']), unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown("""
-            <div class="metric-card">
-                <h4>MAPE</h4>
-                <h2>{:.2f}%</h2>
-                <p>Error Porcentual Absoluto</p>
-            </div>
-            """.format(metrics['MAPE']), unsafe_allow_html=True)
-        
-        # Interpretación de métricas
-        st.markdown("""
-        <div class="info-box">
-            <h4>📋 Interpretación de Métricas</h4>
-            <ul>
-                <li><b>MAE:</b> Promedio de error absoluto en las mismas unidades que los datos</li>
-                <li><b>RMSE:</b> Penaliza más los errores grandes, útil para detectar outliers</li>
-                <li><b>R²:</b> Proporción de variabilidad explicada (0-1, donde 1 es perfecto)</li>
-                <li><b>MAPE:</b> Error relativo expresado como porcentaje</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Gráfico de comparación
-        st.markdown("### 📈 Valores Reales vs Predicciones del Modelo")
-        
-        df_raw = load_raw_data()
-        fig_comparison = go.Figure()
-        
-        # Serie real
-        fig_comparison.add_trace(go.Scatter(
-            x=df_raw['fecha'][-len(metrics['y_valid']):],
-            y=metrics['y_valid'],
-            mode='lines',
-            name='Valores Reales',
-            line=dict(color='blue', width=2)
-        ))
-        
-        # Predicciones
-        fig_comparison.add_trace(go.Scatter(
-            x=df_raw['fecha'][-len(metrics['pred']):],
-            y=metrics['pred'],
-            mode='lines',
-            name='ARIMA Ajustado',
-            line=dict(color='red', width=2, dash='dash')
-        ))
-        
-        fig_comparison.update_layout(
-            title="Comparación: Serie Real vs Modelo ARIMA",
-            xaxis_title="Fecha",
-            yaxis_title="Precio de Cierre Ajustado",
-            template='plotly_white',
-            height=500,
-            hovermode='x unified'
+    with col1:
+        ultimo_precio = df_filtered['cerrar'].iloc[-1]
+        st.metric(
+            "💰 Último Precio",
+            f"${ultimo_precio:.2f}",
+            delta=f"{df_filtered['retorno_diario'].iloc[-1]:.2%}" if not df_filtered['retorno_diario'].iloc[-1] == 0 else None
         )
+    
+    with col2:
+        retorno_total = df_filtered['retorno_acumulado'].iloc[-1]
+        st.metric(
+            "📊 Retorno Total",
+            f"{retorno_total:.2%}",
+            delta=f"{retorno_total:.2%}"
+        )
+    
+    with col3:
+        volatilidad_promedio = df_filtered['volatilidad'].mean()
+        st.metric(
+            "📉 Volatilidad Promedio",
+            f"{volatilidad_promedio:.2f}",
+            delta=f"{df_filtered['volatilidad'].iloc[-1] - volatilidad_promedio:.2f}"
+        )
+    
+    with col4:
+        volumen_promedio = df_filtered['volumen'].mean()
+        st.metric(
+            "📊 Volumen Promedio",
+            f"{volumen_promedio:,.0f}",
+            delta=f"{df_filtered['volumen'].iloc[-1] - volumen_promedio:,.0f}"
+        )
+    
+    with col5:
+        media_movil = df_filtered['media_movil_5d'].iloc[-1]
+        precio_actual = df_filtered['cerrar'].iloc[-1]
+        diferencia_mm = ((precio_actual - media_movil) / media_movil) * 100
+        st.metric(
+            "📈 vs Media Móvil 5D",
+            f"{diferencia_mm:.1f}%",
+            delta=f"{diferencia_mm:.1f}%"
+        )
+
+# =================== GRÁFICOS DE INDICADORES FINANCIEROS ===================
+st.markdown('<div class="section-header">📊 Análisis de Indicadores Financieros</div>', unsafe_allow_html=True)
+
+# Configuración de indicadores
+kpi_options = {
+    'retorno_diario': 'Retorno Diario (%)',
+    'tasa_variacion_ac': 'Tasa de Variación Apertura-Cierre (%)',
+    'retorno_acumulado': 'Retorno Acumulado (%)',
+    'media_movil_5d': 'Media Móvil 5 Días ($)',
+    'volatilidad': 'Volatilidad (Rolling 5D)'
+}
+
+# Selector de KPI
+selected_kpi = st.selectbox(
+    "🎯 Selecciona un indicador para análisis detallado:",
+    options=list(kpi_options.keys()),
+    format_func=lambda x: kpi_options[x]
+)
+
+# Crear gráfico interactivo
+fig = go.Figure()
+
+# Configurar formato según el tipo de indicador
+if selected_kpi in ['retorno_diario', 'tasa_variacion_ac', 'retorno_acumulado']:
+    y_values = df_filtered[selected_kpi] * 100  # Convertir a porcentaje
+    y_format = '.2%'
+    y_title = kpi_options[selected_kpi]
+else:
+    y_values = df_filtered[selected_kpi]
+    y_format = '.2f'
+    y_title = kpi_options[selected_kpi]
+
+fig.add_trace(go.Scatter(
+    x=df_filtered['fecha'],
+    y=y_values,
+    mode='lines',
+    name=kpi_options[selected_kpi],
+    line=dict(color='#1877f2', width=2),
+    hovertemplate='<b>Fecha:</b> %{x}<br><b>Valor:</b> %{y}<extra></extra>'
+))
+
+fig.update_layout(
+    title=f'📈 {kpi_options[selected_kpi]} - Evolución Temporal',
+    xaxis_title='Fecha',
+    yaxis_title=y_title,
+    template='plotly_white',
+    hovermode='x unified',
+    showlegend=False,
+    height=500
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# =================== ANÁLISIS MULTIVARIADO ===================
+st.markdown('<div class="section-header">🔍 Análisis Multivariado</div>', unsafe_allow_html=True)
+
+tab1, tab2, tab3 = st.tabs(["📊 Precios y Volumen", "📈 Indicadores Técnicos", "🎯 Correlaciones"])
+
+with tab1:
+    # Gráfico de precios con volumen
+    fig_multi = make_subplots(
+        rows=2, cols=1,
+        subplot_titles=('Precio de Cierre y Media Móvil', 'Volumen'),
+        vertical_spacing=0.1,
+        row_heights=[0.7, 0.3]
+    )
+    
+    # Precio de cierre
+    fig_multi.add_trace(
+        go.Scatter(x=df_filtered['fecha'], y=df_filtered['cerrar'],
+                  name='Precio de Cierre', line=dict(color='#1877f2')),
+        row=1, col=1
+    )
+    
+    # Media móvil
+    fig_multi.add_trace(
+        go.Scatter(x=df_filtered['fecha'], y=df_filtered['media_movil_5d'],
+                  name='Media Móvil 5D', line=dict(color='#ff6b6b', dash='dash')),
+        row=1, col=1
+    )
+    
+    # Volumen
+    fig_multi.add_trace(
+        go.Bar(x=df_filtered['fecha'], y=df_filtered['volumen'],
+               name='Volumen', marker_color='#95a5a6'),
+        row=2, col=1
+    )
+    
+    fig_multi.update_layout(height=600, template='plotly_white')
+    fig_multi.update_xaxes(title_text="Fecha", row=2, col=1)
+    fig_multi.update_yaxes(title_text="Precio ($)", row=1, col=1)
+    fig_multi.update_yaxes(title_text="Volumen", row=2, col=1)
+    
+    st.plotly_chart(fig_multi, use_container_width=True)
+
+with tab2:
+    # Indicadores técnicos
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Retorno diario
+        fig_ret = px.histogram(df_filtered, x='retorno_diario', nbins=30,
+                              title='Distribución del Retorno Diario')
+        fig_ret.update_layout(template='plotly_white')
+        st.plotly_chart(fig_ret, use_container_width=True)
+    
+    with col2:
+        # Volatilidad
+        fig_vol = px.line(df_filtered, x='fecha', y='volatilidad',
+                         title='Evolución de la Volatilidad')
+        fig_vol.update_layout(template='plotly_white')
+        st.plotly_chart(fig_vol, use_container_width=True)
+
+with tab3:
+    # Matriz de correlación
+    numeric_cols = ['apertura', 'alto', 'bajo', 'cerrar', 'volumen', 
+                   'retorno_diario', 'volatilidad', 'media_movil_5d']
+    corr_matrix = df_filtered[numeric_cols].corr()
+    
+    fig_corr = px.imshow(corr_matrix, 
+                        title='Matriz de Correlación de Indicadores Financieros',
+                        color_continuous_scale='RdBu_r',
+                        aspect='auto')
+    fig_corr.update_layout(template='plotly_white', height=500)
+    st.plotly_chart(fig_corr, use_container_width=True)
+
+# =================== MODELO ARIMA Y PREDICCIONES ===================
+st.markdown('<div class="section-header">🤖 Modelo ARIMA y Predicciones</div>', unsafe_allow_html=True)
+
+if model_metrics:
+    # Métricas del modelo
+    st.markdown("#### 📊 Métricas de Evaluación del Modelo")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="metric-container">
+            <h3 style="color: #1877f2; margin: 0;">MAE</h3>
+            <h2 style="margin: 0.5rem 0;">{model_metrics['mae']:.2f}</h2>
+            <small>Error Absoluto Medio</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-container">
+            <h3 style="color: #1877f2; margin: 0;">RMSE</h3>
+            <h2 style="margin: 0.5rem 0;">{model_metrics['rmse']:.2f}</h2>
+            <small>Raíz del Error Cuadrático Medio</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="metric-container">
+            <h3 style="color: #1877f2; margin: 0;">R²</h3>
+            <h2 style="margin: 0.5rem 0;">{model_metrics['r2']:.3f}</h2>
+            <small>Coeficiente de Determinación</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="metric-container">
+            <h3 style="color: #1877f2; margin: 0;">MAPE</h3>
+            <h2 style="margin: 0.5rem 0;">{model_metrics['mape']:.2f}%</h2>
+            <small>Error Porcentual Absoluto Medio</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Información sobre las métricas
+    st.markdown("""
+    <div class="info-box">
+        <h4>📋 Interpretación de Métricas:</h4>
+        <ul>
+            <li><strong>MAE:</strong> Error promedio en términos absolutos. Valores más bajos indican mejor precisión.</li>
+            <li><strong>RMSE:</strong> Penaliza más los errores grandes. Útil para detectar outliers en las predicciones.</li>
+            <li><strong>R²:</strong> Proporción de variabilidad explicada por el modelo (0-1, donde 1 es perfecto).</li>
+            <li><strong>MAPE:</strong> Error relativo expresado en porcentaje. Más fácil de interpretar.</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Gráfico de ajuste del modelo
+    st.markdown("#### 📈 Comparación: Valores Reales vs Modelo ARIMA")
+    
+    fig_model = go.Figure()
+    
+    # Serie real
+    fig_model.add_trace(go.Scatter(
+        x=model_metrics['serie_real'].index,
+        y=model_metrics['serie_real'].values,
+        mode='lines',
+        name='Valores Reales',
+        line=dict(color='#1877f2', width=2)
+    ))
+    
+    # Predicciones del modelo
+    fig_model.add_trace(go.Scatter(
+        x=model_metrics['pred'].index,
+        y=model_metrics['pred'].values,
+        mode='lines',
+        name='ARIMA Ajustado',
+        line=dict(color='#ff6b6b', dash='dash', width=2)
+    ))
+    
+    fig_model.update_layout(
+        title='Serie de Tiempo: Comparación Modelo vs Realidad',
+        xaxis_title='Período',
+        yaxis_title='Precio de Cierre Ajustado ($)',
+        template='plotly_white',
+        hovermode='x unified',
+        height=500
+    )
+    
+    st.plotly_chart(fig_model, use_container_width=True)
+    
+    # Predicción futura interactiva
+    st.markdown("#### 🔮 Predicción Futura")
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        steps = st.slider("Días a predecir:", min_value=1, max_value=30, value=7)
         
-        st.plotly_chart(fig_comparison, use_container_width=True)
-        
-        # Predicción futura
-        st.markdown("### 🔮 Predicción Futura")
-        
-        col1, col2 = st.columns([1, 2])
-        
-        with col1:
-            steps = st.slider(
-                "Días a predecir:",
-                min_value=1,
-                max_value=30,
-                value=5,
-                help="Selecciona el número de días futuros a predecir"
-            )
-        
-        if st.button("🚀 Generar Predicción", type="primary"):
+        if st.button("🚀 Generar Predicción"):
             try:
                 logger = Logger()
                 modeller = Modeller(logger)
-                forecast = modeller.predecir(df_raw, steps=steps)
+                forecast = modeller.predecir(df, steps=steps)
                 
-                if forecast:
-                    st.markdown(f"""
-                    <div class="success-box">
-                        <h4>✅ Predicción para los próximos {steps} días:</h4>
-                        <ul>
-                    """, unsafe_allow_html=True)
-                    
-                    for i, pred_value in enumerate(forecast, 1):
-                        fecha_pred = (datetime.now() + timedelta(days=i)).strftime('%Y-%m-%d')
-                        st.markdown(f"<li><b>Día {i} ({fecha_pred}):</b> ${pred_value:.2f}</li>", unsafe_allow_html=True)
-                    
-                    st.markdown("</ul></div>", unsafe_allow_html=True)
-                else:
-                    st.error("Error al generar la predicción")
+                st.success(f"✅ Predicción generada para {steps} días")
+                
+                # Mostrar predicciones en formato tabla
+                fecha_inicio_pred = df['fecha'].max() + timedelta(days=1)
+                fechas_pred = pd.date_range(start=fecha_inicio_pred, periods=steps, freq='D')
+                
+                df_forecast = pd.DataFrame({
+                    'Fecha': fechas_pred,
+                    'Precio Predicho': forecast
+                })
+                
+                st.dataframe(df_forecast, use_container_width=True)
+                
             except Exception as e:
-                st.error(f"Error en la predicción: {e}")
-
-# =================== VISTA: DASHBOARD COMPLETO ===================
-elif vista_seleccionada == "📊 Dashboard Completo":
-    if df_filtered.empty:
-        st.error("No hay datos disponibles")
-    else:
-        st.markdown("## 📊 Dashboard Completo - Meta Platforms")
-        
-        # Fila 1: Métricas principales
-        col1, col2, col3, col4, col5 = st.columns(5)
-        
-        with col1:
-            precio_actual = df_filtered['cerrar'].iloc[-1]
-            st.metric("Precio Actual", f"${precio_actual:.2f}")
-        
-        with col2:
-            cambio_pct = df_filtered['tasa_variacion_ac'].iloc[-1]
-            st.metric("Cambio Diario", f"{cambio_pct:.2%}")
-        
-        with col3:
-            vol_promedio = df_filtered['volatilidad'].mean()
-            st.metric("Volatilidad Media", f"{vol_promedio:.4f}")
-        
-        with col4:
-            retorno_total = df_filtered['retorno_acumulado'].iloc[-1]
-            st.metric("Retorno Total", f"{retorno_total:.2%}")
-        
-        with col5:
-            vol_medio = df_filtered['volumen'].mean()
-            st.metric("Volumen Medio", f"{vol_medio:,.0f}")
-        
-        # Fila 2: Gráficos principales
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Gráfico de retorno acumulado
-            fig_ret = create_kpi_chart(df_filtered, 'retorno_acumulado', 'Retorno Acumulado')
-            st.plotly_chart(fig_ret, use_container_width=True)
-        
-        with col2:
-            # Gráfico de volatilidad
-            fig_vol = create_kpi_chart(df_filtered, 'volatilidad', 'Volatilidad')
-            st.plotly_chart(fig_vol, use_container_width=True)
-        
-        # Fila 3: Análisis de precios
-        fig_price = create_price_chart(df_filtered)
-        st.plotly_chart(fig_price, use_container_width=True)
-        
-        # Fila 4: Matriz de correlación
-        st.markdown("### 🔗 Matriz de Correlación de Indicadores")
-        
-        numeric_cols = ['apertura', 'alto', 'bajo', 'cerrar', 'volumen', 
-                       'retorno_diario', 'tasa_variacion_ac', 'volatilidad']
-        
-        corr_data = df_filtered[numeric_cols].corr()
-        
-        fig_corr = px.imshow(
-            corr_data,
-            text_auto=True,
-            aspect="auto",
-            title="Matriz de Correlación",
-            color_continuous_scale="RdBu_r"
-        )
-        fig_corr.update_layout(height=500)
-        st.plotly_chart(fig_corr, use_container_width=True)
-
-# =================== VISTA: DATOS HISTÓRICOS ===================
-elif vista_seleccionada == "📋 Datos Históricos":
-    st.markdown("## 📋 Datos Históricos")
+                st.error(f"Error al generar predicción: {e}")
     
-    tab1, tab2 = st.tabs(["📊 Datos Enriquecidos", "📈 Datos Originales"])
-    
-    with tab1:
-        st.markdown("### Datos con Indicadores Calculados")
-        if not df_filtered.empty:
-            st.dataframe(
-                df_filtered.round(4),
-                use_container_width=True,
+    with col2:
+        # Mostrar predicciones existentes si están disponibles
+        if not df_predictions.empty:
+            st.markdown("##### 📊 Predicciones Precalculadas")
+            
+            fig_pred = go.Figure()
+            
+            # Datos históricos (últimos 30 días)
+            df_recent = df.tail(30)
+            fig_pred.add_trace(go.Scatter(
+                x=df_recent['fecha'],
+                y=df_recent['cerrar'],
+                mode='lines',
+                name='Histórico',
+                line=dict(color='#1877f2', width=2)
+            ))
+            
+            # Predicciones
+            fig_pred.add_trace(go.Scatter(
+                x=df_predictions['fecha'],
+                y=df_predictions['cerrar'],
+                mode='lines',
+                name='Predicciones',
+                line=dict(color='#28a745', width=2, dash='dash')
+            ))
+            
+            fig_pred.update_layout(
+                title='Predicciones vs Datos Históricos',
+                xaxis_title='Fecha',
+                yaxis_title='Precio ($)',
+                template='plotly_white',
                 height=400
             )
             
-            # Botón de descarga
-            csv = df_filtered.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Descargar datos enriquecidos (CSV)",
-                data=csv,
-                file_name=f'meta_enriched_{datetime.now().strftime("%Y%m%d")}.csv',
-                mime='text/csv'
-            )
-        else:
-            st.warning("No hay datos enriquecidos disponibles")
-    
-    with tab2:
-        st.markdown("### Datos Históricos Originales")
-        df_raw = load_raw_data()
-        if not df_raw.empty:
-            # Filtrar por fechas
-            mask_raw = (df_raw['fecha'].dt.date >= fecha_inicio) & (df_raw['fecha'].dt.date <= fecha_fin)
-            df_raw_filtered = df_raw.loc[mask_raw]
-            
-            st.dataframe(
-                df_raw_filtered.round(2),
-                use_container_width=True,
-                height=400
-            )
-            
-            # Botón de descarga
-            csv_raw = df_raw_filtered.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Descargar datos históricos (CSV)",
-                data=csv_raw,
-                file_name=f'meta_historical_{datetime.now().strftime("%Y%m%d")}.csv',
-                mime='text/csv'
-            )
-        else:
-            st.warning("No hay datos históricos disponibles")
+            st.plotly_chart(fig_pred, use_container_width=True)
 
-# =================== FOOTER ===================
+else:
+    st.markdown("""
+    <div class="warning-box">
+        <h4>⚠️ Modelo no disponible</h4>
+        <p>No se encontró el modelo ARIMA entrenado. Para generar predicciones y métricas:</p>
+        <ol>
+            <li>Ejecuta <code>main.py</code> para entrenar el modelo</li>
+            <li>Asegúrate de que el archivo <code>model.pkl</code> se haya generado correctamente</li>
+            <li>Recarga esta página</li>
+        </ol>
+    </div>
+    """, unsafe_allow_html=True)
+
+# =================== FOOTER CON INFORMACIÓN ADICIONAL ===================
 st.markdown("---")
-st.markdown("""
+st.markdown(f"""
 <div style="text-align: center; color: #666; padding: 1rem;">
-    <p>📊 Dashboard desarrollado para análisis financiero de Meta Platforms Inc.</p>
-    <p>Fuente de datos: Yahoo Finance | Modelo: ARIMA | Framework: Streamlit</p>
+    <small>
+        📊 Dashboard generado el {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | 
+        📈 Datos de {df['fecha'].min().strftime('%d/%m/%Y') if not df.empty else 'N/A'} a {df['fecha'].max().strftime('%d/%m/%Y') if not df.empty else 'N/A'} | 
+        🔄 Total de registros: {len(df)}
+    </small>
 </div>
 """, unsafe_allow_html=True)
+

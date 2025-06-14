@@ -4,6 +4,8 @@ from enricher import Enricher
 from modeller import Modeller 
 
 import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
 
 
 def main():
@@ -47,35 +49,138 @@ def main():
 
     # ========== ENTRENAR Y GUARDAR MODELO ==========
     modeller = Modeller(logger)
-    resultado_entrenamiento = modeller.entrenar(df_crudo)
+    
+    # Convertir fechas de vuelta a datetime para el entrenamiento
+    df_para_modelo = df_crudo.copy()
+    df_para_modelo['fecha'] = pd.to_datetime(df_para_modelo['fecha'])
+    
+    resultado_entrenamiento = modeller.entrenar(df_para_modelo)
 
     if resultado_entrenamiento:
         print("Modelo entrenado y guardado correctamente.")
-
-        # Calcular predicción
-        predicciones = modeller.predecir(df_crudo, steps=5)
-
-        # Crear DataFrame con fechas futuras y predicciones
-        fechas_pred = pd.date_range(
-            start=pd.to_datetime(df_crudo['fecha'].max(), format='%m/%d/%Y') + pd.Timedelta(days=1),
-            periods=len(predicciones),
-            freq='D'
-        ).strftime('%m/%d/%Y')
-
-        df_pred = pd.DataFrame({
-            'fecha': fechas_pred,
-            'cierre_ajustado_predicho': predicciones
-        })
-
-        columnas_pred = columnas_finales + ['cierre_ajustado_predicho']
-        df_pred_extend = pd.DataFrame(columns=columnas_pred)
-        df_pred_extend['fecha'] = df_pred['fecha']
-        df_pred_extend['cierre_ajustado_predicho'] = df_pred['cierre_ajustado_predicho']
-
-        # Guardar predicciones en un CSV separado
-        path_pred = "src/piv/static/data/meta_predicciones.csv"
-        df_pred_extend.to_csv(path_pred, index=False, float_format='%.4f')
-        print(f"Predicciones guardadas en: {path_pred}")
-
+        
+        # ========== GENERAR PREDICCIONES ==========
+        generar_archivo_predicciones(df_para_modelo, modeller, enricher, logger)
+        
     else:
         print("Error al entrenar o guardar el modelo.")
+
+    # Control visual
+    print("\n--- Vista previa crudo ---")
+    print(df_crudo.head())
+    print("\n--- Vista previa enriquecido ---")
+    print(df_enriched_final.head())
+
+
+def generar_archivo_predicciones(df_historico, modeller, enricher, logger):
+    """
+    Genera solo el archivo de predicciones
+    """
+    try:
+        # Configuración de predicciones
+        dias_prediccion = 30  # Predecir 30 días hacia el futuro
+        
+        # Obtener la última fecha del dataset histórico
+        ultima_fecha = df_historico['fecha'].max()
+        
+        # Generar predicciones usando el modelo ARIMA
+        predicciones = modeller.predecir(df_historico, steps=dias_prediccion)
+        
+        if not predicciones:
+            print("No se pudieron generar predicciones")
+            return
+        
+        # Crear fechas futuras (excluyendo fines de semana para datos financieros)
+        fechas_futuras = []
+        fecha_actual = ultima_fecha + timedelta(days=1)
+        
+        while len(fechas_futuras) < dias_prediccion:
+            # Solo agregar días laborables (lunes a viernes)
+            if fecha_actual.weekday() < 5:  # 0=lunes, 4=viernes
+                fechas_futuras.append(fecha_actual)
+            fecha_actual += timedelta(days=1)
+        
+        # Obtener estadísticas del último mes para generar valores realistas
+        ultimo_mes = df_historico.tail(20)  # Últimos 20 días de trading
+        
+        # Calcular promedios y volatilidades para generar valores coherentes
+        promedio_volumen = ultimo_mes['volumen'].mean()
+        volatilidad_precio = ultimo_mes['cerrar'].std()
+        ultimo_precio = ultimo_mes['cierre_ajustado'].iloc[-1]
+        
+        # Crear DataFrame base de predicciones
+        df_predicciones = pd.DataFrame()
+        df_predicciones['fecha'] = fechas_futuras
+        
+        # Usar las predicciones del modelo ARIMA para cierre_ajustado y cerrar
+        df_predicciones['cierre_ajustado'] = predicciones
+        df_predicciones['cerrar'] = predicciones
+        
+        # Generar valores sintéticos pero realistas para otras columnas
+        np.random.seed(42)  # Para reproducibilidad
+        
+        apertura_values = []
+        alto_values = []
+        bajo_values = []
+        volumen_values = []
+        
+        for i, precio_cierre in enumerate(predicciones):
+            # Generar apertura con pequeña variación del cierre anterior
+            if i == 0:
+                apertura = ultimo_precio * (1 + np.random.normal(0, 0.005))
+            else:
+                apertura = predicciones[i-1] * (1 + np.random.normal(0, 0.005))
+            
+            # Alto y bajo basados en volatilidad histórica
+            volatilidad_diaria = volatilidad_precio * np.random.uniform(0.5, 1.5)
+            alto = max(apertura, precio_cierre) * (1 + abs(np.random.normal(0, volatilidad_diaria/precio_cierre)))
+            bajo = min(apertura, precio_cierre) * (1 - abs(np.random.normal(0, volatilidad_diaria/precio_cierre)))
+            
+            # Volumen con variación realista
+            volumen = int(promedio_volumen * np.random.uniform(0.7, 1.3))
+            
+            apertura_values.append(apertura)
+            alto_values.append(alto)
+            bajo_values.append(bajo)
+            volumen_values.append(volumen)
+        
+        df_predicciones['apertura'] = apertura_values
+        df_predicciones['alto'] = alto_values
+        df_predicciones['bajo'] = bajo_values
+        df_predicciones['volumen'] = volumen_values
+        
+        # ========== ENRIQUECER DATOS DE PREDICCIONES ==========
+        # Aplicar enriquecimiento a las predicciones
+        df_predicciones_enriquecido = enricher.calcular_kpi(df_predicciones.copy())
+        
+        # Agregar columna tipo para identificar como predicción
+        df_predicciones_enriquecido['tipo'] = 'prediccion'
+        
+        # Formatear fecha para consistencia
+        df_predicciones_enriquecido['fecha'] = pd.to_datetime(df_predicciones_enriquecido['fecha']).dt.strftime('%m/%d/%Y')
+        
+        # ========== GUARDAR ARCHIVO DE PREDICCIONES ==========
+        path_predicciones = "src/piv/static/data/meta_predicciones.csv"
+        df_predicciones_enriquecido.to_csv(path_predicciones, index=False, float_format='%.4f')
+        
+        print(f"\n=== Archivo de Predicciones Generado ===")
+        print(f"CSV predicciones: {path_predicciones}")
+        print(f"Días predichos: {dias_prediccion}")
+        print(f"Rango de fechas predichas: {fechas_futuras[0].strftime('%Y-%m-%d')} a {fechas_futuras[-1].strftime('%Y-%m-%d')}")
+        print(f"Total registros de predicción: {len(df_predicciones_enriquecido)}")
+        
+        # Mostrar muestra de las predicciones
+        print("\n--- Vista previa predicciones ---")
+        print(df_predicciones_enriquecido.head(3)[['fecha', 'cerrar', 'retorno_diario', 'tipo']])
+        
+        # Log de éxito
+        logger.info("Main", "generar_archivo_predicciones", 
+                   f"Archivo de predicciones generado exitosamente. Total: {len(df_predicciones_enriquecido)} registros")
+        
+    except Exception as e:
+        print(f"Error al generar archivo de predicciones: {str(e)}")
+        logger.error("Main", "generar_archivo_predicciones", f"Error: {str(e)}")
+
+
+if __name__ == "__main__":
+    main()
