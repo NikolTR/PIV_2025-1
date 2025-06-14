@@ -16,7 +16,7 @@ Este proyecto implementa un pipeline completo de extracción, enriquecimiento, m
 ---
 
 ## 🧠 Estructura del proyecto
-
+```
 PIV_2025-1/
 ├── src/
 │   └── piv/
@@ -37,24 +37,25 @@ PIV_2025-1/
 ├── setup.py                                   # Configuración de dependencias
 └── README.md
 
+```
 ---
 
 ## ⚙️ Instalación y ejecución
 
-# 1. Clona el repositorio:
+1. Clona el repositorio:
 git clone https://github.com/tu_usuario/PIV_2025-1.git
 cd PIV_2025-1
 
-# 2. Crea y activa el entorno virtual:
+2. Crea y activa el entorno virtual:
 python -m venv venv
 
-# Windows
+### Windows
 venv\Scripts\activate
 
-# Linux/Mac
+### Linux/Mac
 source venv/bin/activate
 
-# 3. Instala las dependencias:
+3. Instala las dependencias:
 pip install -e .
 
 ---
@@ -95,7 +96,6 @@ streamlit run src/piv/dashboard.py
  - Soporte para estructuras cambiantes
 
 📈 Enriquecimiento (enricher.py)
-
 Cálculo automático de KPIs:
 
 - Retorno diario
