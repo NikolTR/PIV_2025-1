@@ -45,7 +45,7 @@ def main():
     df_enriched_final.to_csv(path_enriched, index=False, float_format='%.4f')
     print(f"CSV enriquecido guardado: {path_enriched}")
 
-    # ========== ENTRENAR MODELO Y GUARDAR PREDICCIONES ==========
+    # ========== ENTRENAR Y GUARDAR MODELO ==========
     modeller = Modeller(logger)
     resultado_entrenamiento = modeller.entrenar(df_crudo)
 
@@ -53,19 +53,29 @@ def main():
         print("Modelo entrenado y guardado correctamente.")
 
         # Calcular predicción
-        predicciones = modeller.predecir(df_crudo, steps=5)  
+        predicciones = modeller.predecir(df_crudo, steps=5)
 
-        # Guardar predicciones en CSV
+        # Crear DataFrame con fechas futuras y predicciones
+        fechas_pred = pd.date_range(
+            start=pd.to_datetime(df_crudo['fecha'].max(), format='%m/%d/%Y') + pd.Timedelta(days=1),
+            periods=len(predicciones),
+            freq='D'
+        ).strftime('%m/%d/%Y')
+
         df_pred = pd.DataFrame({
-            'fecha_prediccion': pd.date_range(
-                start=pd.to_datetime(df_crudo['fecha'].max(), format='%m/%d/%Y') + pd.Timedelta(days=1),
-                periods=len(predicciones),
-                freq='D'
-            ),
+            'fecha': fechas_pred,
             'cierre_ajustado_predicho': predicciones
         })
+
+        columnas_pred = columnas_finales + ['cierre_ajustado_predicho']
+        df_pred_extend = pd.DataFrame(columns=columnas_pred)
+        df_pred_extend['fecha'] = df_pred['fecha']
+        df_pred_extend['cierre_ajustado_predicho'] = df_pred['cierre_ajustado_predicho']
+
+        # Guardar predicciones en un CSV separado
         path_pred = "src/piv/static/data/meta_predicciones.csv"
-        df_pred.to_csv(path_pred, index=False, float_format='%.4f')
-        print(f"Predicciones guardadas: {path_pred}")
+        df_pred_extend.to_csv(path_pred, index=False, float_format='%.4f')
+        print(f"Predicciones guardadas en: {path_pred}")
+
     else:
         print("Error al entrenar o guardar el modelo.")
