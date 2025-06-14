@@ -17,7 +17,6 @@ Este proyecto implementa un pipeline completo de extracción, enriquecimiento, m
 
 ## 🧠 Estructura del proyecto
 
-```
 PIV_2025-1/
 ├── src/
 │   └── piv/
@@ -42,7 +41,6 @@ PIV_2025-1/
 
 ## ⚙️ Instalación y ejecución
 
-```bash
 # 1. Clona el repositorio:
 git clone https://github.com/tu_usuario/PIV_2025-1.git
 cd PIV_2025-1
@@ -97,6 +95,7 @@ streamlit run src/piv/dashboard.py
  - Soporte para estructuras cambiantes
 
 📈 Enriquecimiento (enricher.py)
+
 Cálculo automático de KPIs:
 
 - Retorno diario
