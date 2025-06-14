@@ -187,7 +187,7 @@ Controles interactivos:
 
 - Generación de predicciones dinámicas
 
--- 
+---
 
 ## 📌 Notas
 
