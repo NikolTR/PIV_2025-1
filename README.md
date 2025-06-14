@@ -44,9 +44,11 @@ PIV_2025-1/
 
 1. Clona el repositorio:
 git clone https://github.com/tu_usuario/PIV_2025-1.git
+
 cd PIV_2025-1
 
 2. Crea y activa el entorno virtual:
+
 python -m venv venv
 
 ### Windows
@@ -56,6 +58,7 @@ venv\Scripts\activate
 source venv/bin/activate
 
 3. Instala las dependencias:
+
 pip install -e .
 
 ---
