@@ -169,7 +169,7 @@ volatilidad = df['cerrar'].rolling(window=5).std()
 📊 Dashboard - Funcionalidades principales
 
 
-📊 Análisis Indicadores
+Análisis Indicadores
 
 🔍 Análisis Multivariado
 
