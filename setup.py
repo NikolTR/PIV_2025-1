@@ -16,6 +16,7 @@ setup(
         "matplotlib",
         "seaborn",
         "statsmodels",
+        "streamlit",
         "plotly"
     ]
 )
