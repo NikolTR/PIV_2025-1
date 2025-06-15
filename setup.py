@@ -1,11 +1,12 @@
 from setuptools import setup, find_packages
+
 setup(
     name="piv",
-    version="0.0.1",
+    version="0.1.0",
     author="Nikol Tamayo",
-    author_email="",
-    description="",
-    py_modules=["actividad1","actividad2"],
+    description="Paquete de análisis financiero para Meta Platforms con modelo ARIMA y dashboard",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     install_requires=[
         "pandas==2.2.3",
         "openpyxl",
@@ -16,8 +17,10 @@ setup(
         "matplotlib",
         "seaborn",
         "statsmodels",
-        "streamlit",
-        "plotly"
-    ]
+        "plotly",
+        "streamlit"
+    ],
+    include_package_data=True,
+    python_requires=">=3.8"
 )
 
