@@ -15,7 +15,8 @@ setup(
         "scikit-learn>=0.24.0",
         "matplotlib",
         "seaborn",
-        "statsmodels"
+        "statsmodels",
+        "plotly"
     ]
 )
 
