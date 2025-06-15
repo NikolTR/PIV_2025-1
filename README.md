@@ -161,6 +161,7 @@ dias_prediccion = 30
 Ventanas técnicas:
 
 media_movil_5d = df['cerrar'].rolling(window=5).mean()
+
 volatilidad = df['cerrar'].rolling(window=5).std()
 
 ---
